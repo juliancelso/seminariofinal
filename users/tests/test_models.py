@@ -29,7 +29,6 @@ class TestUserModel(TestCase):
         )
 
         user.save()
-        print("Usuario creado correctamente")
 
     # Missing required fields        
     def test_create_user_missing_required_fields(self):
@@ -53,7 +52,6 @@ class TestUserModel(TestCase):
             with self.assertRaises(ValidationError):
                 user = User(**user_data)
                 user.full_clean()
-    print("No se ha podido crear el usuario debido a que faltaba información.")
 
     """
     DNI VALIDATION
@@ -89,7 +87,6 @@ class TestUserModel(TestCase):
             )
 
             user2.save()
-    print("No se ha podido crear el usuario debido a que ya existe el dni en la base de datos.")
 
     # More than 8 digits DNI
     def test_create_user_with_more_than_8_digits_dni(self):
@@ -108,7 +105,6 @@ class TestUserModel(TestCase):
 
             user.full_clean()
             user.save()
-    print("No se ha podido crear el usuario debido a que el dni debe tener entre 7 y 8 dígitos.")
 
     # Less than 7 digits DNI
     def test_create_user_with_less_than_7_digits_dni(self):
@@ -127,7 +123,6 @@ class TestUserModel(TestCase):
 
             user.full_clean()
             user.save()
-    print("No se ha podido crear el usuario debido a que el dni debe tener entre 7 y 8 dígitos.")
 
     # Non digits DNI    
     def test_create_user_with_non_digits_dni(self):
@@ -146,7 +141,6 @@ class TestUserModel(TestCase):
 
             user.full_clean()
             user.save()
-    print("No se ha podido crear el usuario debido a que el dni debe tener entre 7 y 8 dígitos. No se permiten caracteres que no sean números.")
 
     """
     MAIL VALIDATION
@@ -182,7 +176,6 @@ class TestUserModel(TestCase):
             )
 
             user2.save()
-    print("No se ha podido crear el usuario debido a que ya existe el mail en la base de datos.")
 
     """
     DATE VALIDATION
@@ -207,9 +200,8 @@ class TestUserModel(TestCase):
 
             user.full_clean()
             user.save()
-    print("No se ha podido crear el usuario. El usuario debe ser mayor a 18 años.")
 
-    """UPDATE VALIDATIONS"""
+    """UPDATE VALIDATION"""
 
     """
     USER MODIFICATION VALIDATION
@@ -243,3 +235,47 @@ class TestUserModel(TestCase):
 
         self.assertNotEqual(updated_user.username, old_username)
         self.assertEqual(updated_user.username, "john.smith")
+
+    """ DELETE VALIDATION"""
+
+    # Logic low
+    def test_soft_delete_user(self):
+        user = User( 
+            first_name="Jane",
+            last_name="Doe",
+            email="janedoe@example.com",
+            password="SecurePass123",
+            dni="12345678",
+            role_id=2,
+            phone="123-456-7890",
+            department="Cardiology",
+            birth_date="1990-05-15"
+        )
+        user.save()
+        
+        user.delete()
+        
+        user_from_db = User.all_objects.filter(pk=user.pk).first()
+
+        self.assertIsNotNone(user_from_db)
+        self.assertFalse(user_from_db.is_active)
+
+    def test_deleted_user_is_not_queryable(self):
+        user = User(
+            first_name="Jane",
+            last_name="Doe",
+            email="janedoe@example.com",
+            password="SecurePass123",
+            dni="12345678",
+            role_id=2,
+            phone="123-456-7890",
+            department="Cardiology",
+            birth_date="1990-05-15"
+        )
+        user.save()
+
+        user.delete()
+
+        user_exists = User.objects.filter(email="janedoe@example.com").first()
+
+        self.assertFalse(user_exists)

@@ -9,6 +9,13 @@ def validate_dni(value):
     if len(value) not in [7, 8]:
         raise ValidationError("DNI must be 7 or 8 digits long.")
 
+class UserManager(models.Manager):
+    def all_users(self):
+        return super().get_queryset()
+class ActiveUserManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
 class User(AbstractUser):
     ROLE_CHOICES = [
         (1, 'Administrator'),
@@ -26,7 +33,10 @@ class User(AbstractUser):
     department = models.CharField(max_length=50, blank=False)
     phone = models.CharField(max_length=15, blank=True)
     birth_date = models.DateField(null=True, blank=False)
-
+    
+    objects = ActiveUserManager()
+    all_objects = UserManager()
+    
     def clean(self):
         self.validate_birth_date()
 
@@ -56,6 +66,10 @@ class User(AbstractUser):
             counter += 1
 
         self.username = username
+
+    def delete(self, *args, **kwargs):
+        self.is_active = False
+        self.save()
 
     def save(self, *args, **kwargs):
         if self.pk:
