@@ -54,18 +54,17 @@ class User(AbstractUser):
             raise ValidationError("User must be at least 18 years old.")
 
     def generate_username(self):
+        if self.first_name:  # Asegurar que first_name no sea None
+            first_name = self.first_name.split()[0].lower()
+        else:
+            first_name = "usuario"  # Nombre por defecto en caso de que no haya first_name
 
-        first_name = self.first_name.split()[0].lower()
-        last_name = self.last_name.split()[0].lower()
+        last_name = self.last_name.split()[0].lower() if self.last_name else "generico"
         base_username = f"{first_name}.{last_name}"
-        username = base_username
-        counter = 1
 
-        while User.objects.filter(username=username).exclude(pk=self.pk).exists():
-            username = f"{base_username}{counter}"
-            counter += 1
+        existing_users = User.objects.filter(username__startswith=base_username).count()
+        self.username = base_username if existing_users == 0 else f"{base_username}{existing_users + 1}"
 
-        self.username = username
 
     def delete(self, *args, **kwargs):
         self.is_active = False
