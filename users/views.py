@@ -4,10 +4,40 @@ from rest_framework import status
 from django.contrib.auth import get_user_model
 import re
 from datetime import datetime, date
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication
 
 User = get_user_model()
+class UserListView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        print(f"🔍 Usuario autenticado: {request.user}")
+
+        if not request.user or not request.user.is_authenticated:
+            return Response({"error": "No estás autenticado."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if request.user.role_id == 1:  # 🔹 Si es admin, devuelve todos los usuarios
+            users = User.objects.all().values("id", "email", "first_name", "last_name", "role_id", "dni", "department", "birth_date")
+            return Response(users, status=status.HTTP_200_OK)
+        else:  # 🔹 Si no es admin, solo devuelve su propio perfil
+            user_data = {
+                "id": request.user.id,
+                "email": request.user.email,
+                "first_name": request.user.first_name,
+                "last_name": request.user.last_name,
+                "role_id": request.user.role_id,
+                "dni": request.user.dni,
+                "department": request.user.department,
+                "birth_date": request.user.birth_date,
+            }
+            return Response(user_data, status=status.HTTP_200_OK)
 
 class UserCreateView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         if request.user.role_id != 1:
             return Response({"error": "No tienes permisos para crear usuarios."}, status=status.HTTP_403_FORBIDDEN)

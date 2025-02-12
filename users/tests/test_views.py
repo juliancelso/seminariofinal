@@ -187,3 +187,29 @@ class TestUserView(APITestCase):
         response = self.client.post('/api/users/create/', data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("birth_date", response.data["errors"])
+
+    def test_admin_can_view_all_users(self):
+        admin = self.users["admin"]
+        token = Token.objects.get(user=admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        response = self.client.get('/api/users/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), len(self.users))
+
+
+    def test_non_admin_can_only_view_self(self):
+        user = self.users["agent"]
+        token = Token.objects.get(user=user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        response = self.client.get('/api/users/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["email"], user.email)
+
+
+    def test_unauthenticated_request_is_rejected(self):
+        self.client.credentials()
+
+        response = self.client.get('/api/users/')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
