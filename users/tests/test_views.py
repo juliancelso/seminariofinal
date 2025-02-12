@@ -58,25 +58,132 @@ class TestUserView(APITestCase):
             Token.objects.create(user=user)
 
     def test_user_creation_permissions(self):
+        for role, user in self.users.items():
+            token = Token.objects.get(user=user)
+            self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+            data = {
+                "email": f"{role}_usuario@example.com",
+                "password": "testpass123",
+                "first_name": "Nuevo",
+                "last_name": "Usuario",
+                "role_id": 3,
+                "dni": f"1234567{user.role_id}",
+                "department": "Pediatrics",
+                "birth_date": "2000-01-01"
+            }
+
+            response = self.client.post('/api/users/create/', data)
+
+            print(f"📩 Respuesta para {role}: {response.status_code} - {response.data}")
+
+            if user.role_id == 1:
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED, f"El admin debería poder crear usuarios pero falló para {role}")
+                self.assertTrue(User.objects.filter(email=data["email"]).exists())
+            else:
+                self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, f"El rol {role} NO debería poder crear usuarios pero la API lo permitió")
+
+    def test_invalid_email(self):
+        admin = self.users["admin"]
+        token = Token.objects.get(user=admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
         data = {
-            "email": "nuevo.usuario@example.com",
+            "email": "email-invalido",
             "password": "testpass123",
             "first_name": "Nuevo",
             "last_name": "Usuario",
             "role_id": 3,
-            "dni": "12345678",  # 🔹 Agregado
-            "department": "Pediatrics",  # 🔹 Agregado
-            "birth_date": "2000-01-01"  # 🔹 Agregado
+            "dni": "12345678",
+            "department": "Pediatrics",
+            "birth_date": "2000-01-01"
         }
-        
-        for role, user in self.users.items():
-            token = Token.objects.get(user=user)
-            self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
-            
-            response = self.client.post('/api/users/create/', data)
-            
-            if user.role_id == 1:
-                self.assertEqual(response.status_code, status.HTTP_201_CREATED, f"El admin debería poder crear usuarios pero falló para {role}")
-                self.assertTrue(User.objects.filter(email="newuser@example.com").exists())
-            else:
-                self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, f"El rol {role} NO debería poder crear usuarios pero la API lo permitió")
+
+        response = self.client.post('/api/users/create/', data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", response.data["errors"])
+
+    def test_invalid_dni_length(self):
+        admin = self.users["admin"]
+        token = Token.objects.get(user=admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        data = {
+            "email": "dni.usuario@example.com",
+            "password": "testpass123",
+            "first_name": "Nuevo",
+            "last_name": "Usuario",
+            "role_id": 3,
+            "dni": "12345",
+            "department": "Pediatrics",
+            "birth_date": "2000-01-01"
+        }
+
+        response = self.client.post('/api/users/create/', data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("dni", response.data["errors"])
+
+
+
+
+    def test_invalid_dni_characters(self):
+        admin = self.users["admin"]
+        token = Token.objects.get(user=admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        data = {
+            "email": "dni.usuario@example.com",
+            "password": "testpass123",
+            "first_name": "Nuevo",
+            "last_name": "Usuario",
+            "role_id": 3,
+            "dni": "1234abcd",
+            "department": "Pediatrics",
+            "birth_date": "2000-01-01"
+        }
+
+        response = self.client.post('/api/users/create/', data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("dni", response.data["errors"])
+
+
+    def test_invalid_birth_date(self):
+        admin = self.users["admin"]
+        token = Token.objects.get(user=admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        data = {
+            "email": "fecha.usuario@example.com",
+            "password": "testpass123",
+            "first_name": "Nuevo",
+            "last_name": "Usuario",
+            "role_id": 3,
+            "dni": "12345678",
+            "department": "Pediatrics",
+            "birth_date": "fecha-invalida"
+        }
+
+        response = self.client.post('/api/users/create/', data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("birth_date", response.data["errors"])
+
+
+    def test_underage_user(self):
+        admin = self.users["admin"]
+        token = Token.objects.get(user=admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        data = {
+            "email": "menor.usuario@example.com",
+            "password": "testpass123",
+            "first_name": "Nuevo",
+            "last_name": "Usuario",
+            "role_id": 3,
+            "dni": "12345678",
+            "department": "Pediatrics",
+            "birth_date": "2010-01-01"
+        }
+
+        response = self.client.post('/api/users/create/', data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("birth_date", response.data["errors"])
