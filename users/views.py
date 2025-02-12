@@ -6,6 +6,8 @@ import re
 from datetime import datetime, date
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
+from django.contrib.auth import authenticate
+from rest_framework.authtoken.models import Token
 
 User = get_user_model()
 class UserListView(APIView):
@@ -13,7 +15,7 @@ class UserListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        print(f"🔍 Usuario autenticado: {request.user}")
+        print(f"Usuario autenticado: {request.user}")
 
         if not request.user or not request.user.is_authenticated:
             return Response({"error": "No estás autenticado."}, status=status.HTTP_401_UNAUTHORIZED)
@@ -75,3 +77,36 @@ class UserCreateView(APIView):
         user.save()
 
         return Response({"message": "Usuario creado correctamente"}, status=status.HTTP_201_CREATED)
+    
+class LoginView(APIView):
+    def post(self, request):
+        """Permite a los usuarios iniciar sesión y obtener un token"""
+        data = request.data
+        email = data.get("email")
+        password = data.get("password")
+
+        print(f"Intento de login con: Email={email}, Password={password}")
+
+        # Validar que se envió email y contraseña
+        if not email or not password:
+            print("Error: Falta email o contraseña.")
+            return Response({"error": "Email y contraseña son obligatorios."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Buscar el usuario por email
+        try:
+            user = User.objects.get(email=email)
+            print(f"Usuario encontrado en la BD: {user.email}")
+        except User.DoesNotExist:
+            print("Error: El email no existe en la base de datos.")
+            return Response({"error": "Email o contraseña incorrectos."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verificar la contraseña
+        if not user.check_password(password):
+            print("Error: La contraseña es incorrecta.")
+            return Response({"error": "Email o contraseña incorrectos."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Obtener o crear un token para el usuario
+        token, created = Token.objects.get_or_create(user=user)
+        print(f"Login exitoso, Token={token.key}")
+
+        return Response({"token": token.key}, status=status.HTTP_200_OK)
