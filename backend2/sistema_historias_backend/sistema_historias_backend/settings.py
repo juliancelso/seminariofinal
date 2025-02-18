@@ -123,14 +123,13 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
-        'rest_framework.permissions.AllowAny',
-    ]
+    ],
 }
 
 AUTH_USER_MODEL = "users.User"
 
 AUTHENTICATION_BACKENDS = [
-    'users.backends.EmailAuthBackend',  # Nuestro nuevo backend
+    'users.backends.EmailAuthBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
 

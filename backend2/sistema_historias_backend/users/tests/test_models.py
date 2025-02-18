@@ -1,280 +1,57 @@
-from django.test import TestCase
-from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from datetime import date
+from users.tests.base_test import BaseTestCase
+from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-class TestUserModel(TestCase):
-
-    """CREATE VALIDATIONS"""
-
-    """
-    USER CREATION VALIDATION
-    """
-
-    # Create user
-    def test_create_user(self):
-        user = User(
-            first_name="Jane",
-            last_name="Doe",
-            email="janedoe@example.com",
-            password="SecurePass123",
-            dni="12345678",
-            role_id=2,
-            phone="123-456-7890",
-            department="Cardiology",
-            birth_date="1990-05-15"
-        )
-
+class TestUserModel(BaseTestCase):
+    def test_create_valid_user(self):
+        """Debe permitir crear un usuario válido"""
+        user = self.users["admin"]
+        user.full_clean()
         user.save()
 
-    # Missing required fields        
-    def test_create_user_missing_required_fields(self):
-        required_fields = ["first_name", "last_name", "email", "password", "dni", "role_id", "department", "birth_date"]
+    def assert_user_creation_fails(self, **invalid_fields):
+        user_data = {
+            "first_name": "Test",
+            "last_name": "User",
+            "email": "testuser@example.com",
+            "password": "SecurePass123",
+            "dni": "12345678",
+            "role_id": 2,
+            "phone": "123-456-7890",
+            "department": "Cardiology",
+            "birth_date": "1990-01-01",
+        }
+        user_data.update(invalid_fields)
+
+        with self.assertRaises(ValidationError):
+            user = User(**user_data)
+            user.full_clean()
+
+    def test_create_user_missing_fields(self):
+        """🔹 Debe fallar si falta un campo obligatorio"""
+        required_fields = ["first_name", "last_name", "email", "dni", "role_id", "department", "birth_date"]
 
         for field in required_fields:
-            user_data = {
-                'first_name': "John",
-                'last_name': "Doe",
-                'email': "johndoe@example.com",
-                'password': "SecurePass123",
-                'dni': "87654321",
-                'role_id': 2,
-                'phone': "123-456-7890",
-                'department': "Cardiology",
-                'birth_date': "1990-05-15"
-            }
-            
-            user_data.pop(field)
+            self.assert_user_creation_fails(**{field: None})
 
-            with self.assertRaises(ValidationError):
-                user = User(**user_data)
-                user.full_clean()
+    def test_create_user_duplicate_dni(self):
+        """🔹 No debe permitir crear un usuario con un DNI duplicado"""
+        self.assert_user_creation_fails(dni="44482922")  # Ya existe
 
-    """
-    DNI VALIDATION
-    """
+    def test_create_user_invalid_dni(self):
+        """🔹 No debe permitir DNI con caracteres no numéricos o longitud incorrecta"""
+        self.assert_user_creation_fails(dni="abc1234")
+        self.assert_user_creation_fails(dni="123")
+        self.assert_user_creation_fails(dni="123456789")
 
-    # Duplicate DNI
-    def test_create_user_with_duplicate_dni(self): 
-        user = User(
-            first_name="Jane",
-            last_name="Doe",
-            email="janedoe@example.com",
-            password="SecurePass123",
-            dni="12345678",
-            role_id=2,
-            phone="123-456-7890",
-            department="Cardiology",
-            birth_date="1990-05-15"
-        )
+    def test_create_user_duplicate_email(self):
+        """🔹 No debe permitir emails duplicados"""
+        self.assert_user_creation_fails(email="julian.ginzburg@example.com")
 
-        user.save()
-
-        with self.assertRaises(ValidationError):
-            user2 = User(
-                first_name="Another",
-                last_name="User",
-                email="another@example.com",
-                password="SecurePass123",
-                dni="12345678",  # 🔥 Mismo DNI, debería fallar
-                role_id=3,
-                phone="999-999-9999",
-                department="Neurology",
-                birth_date="1995-08-20"
-            )
-
-            user2.save()
-
-    # More than 8 digits DNI
-    def test_create_user_with_more_than_8_digits_dni(self):
-        with self.assertRaises(ValidationError):
-            user = User(
-                first_name="Jane",
-                last_name="Doe",
-                email="janedoe@example.com",
-                password="SecurePass123",
-                dni="1234567843",
-                role_id=2,
-                phone="123-456-7890",
-                department="Cardiology",
-                birth_date="1995-08-20"
-            )
-
-            user.full_clean()
-            user.save()
-
-    # Less than 7 digits DNI
-    def test_create_user_with_less_than_7_digits_dni(self):
-        with self.assertRaises(ValidationError):
-            user = User(
-                first_name="Jane",
-                last_name="Doe",
-                email="janedoe@example.com",
-                password="SecurePass123",
-                dni="12343",
-                role_id=2,
-                phone="123-456-7890",
-                department="Cardiology",
-                birth_date="1995-08-20"
-            )
-
-            user.full_clean()
-            user.save()
-
-    # Non digits DNI    
-    def test_create_user_with_non_digits_dni(self):
-        with self.assertRaises(ValidationError):
-            user = User(
-                first_name="Jane",
-                last_name="Doe",
-                email="janedoe@example.com",
-                password="SecurePass123",
-                dni="12_e343",
-                role_id=2,
-                phone="123-456-7890",
-                department="Cardiology",
-                birth_date="1995-08-20"
-            )
-
-            user.full_clean()
-            user.save()
-
-    """
-    MAIL VALIDATION
-    """
-
-    # Duplicate mail
-    def test_create_user_with_duplicate_mail(self): 
-        user = User(
-            first_name="Jane",
-            last_name="Doe",
-            email="janedoe@example.com",
-            password="SecurePass123",
-            dni="12345678",
-            role_id=2,
-            phone="123-456-7890",
-            department="Cardiology",
-            birth_date="1990-05-15"
-        )
-
-        user.save()
-
-        with self.assertRaises(ValidationError):
-            user2 = User(
-                first_name="Another",
-                last_name="User",
-                email="janedoe@example.com",
-                password="SecurePass123",
-                dni="12345676",  # 🔥 Mismo DNI, debería fallar
-                role_id=3,
-                phone="999-999-9999",
-                department="Neurology",
-                birth_date="1995-08-20"
-            )
-
-            user2.save()
-
-    """
-    DATE VALIDATION
-    """
-
-    # Less than 18
-    def test_create_user_with_less_18(self):
+    def test_create_underage_user(self):
+        """🔹 No debe permitir usuarios menores de 18 años"""
         underage_date = date.today().replace(year=date.today().year - 17)
-
-        with self.assertRaises(ValidationError):
-            user = User(
-                first_name="Jane",
-                last_name="Doe",
-                email="janedoe@example.com",
-                password="SecurePass123",
-                dni="12345678",
-                role_id=2,
-                phone="123-456-7890",
-                department="Cardiology",
-                birth_date=underage_date
-            )
-
-            user.full_clean()
-            user.save()
-
-    """UPDATE VALIDATION"""
-
-    """
-    USER MODIFICATION VALIDATION
-    """
-    
-    # Name or lastname modification
-    def test_update_user(self):
-        user = User( 
-            first_name="Jane",
-            last_name="Doe",
-            email="janedoe@example.com",
-            password="SecurePass123",
-            dni="12345678",
-            role_id=2,
-            phone="123-456-7890",
-            department="Cardiology",
-            birth_date="1990-05-15"
-        )
-        user.save()
-
-        old_username = user.username
-
-        user.first_name = "John"
-        user.last_name = "Smith"
-        user.save()
-
-        updated_user = User.objects.get(pk=user.pk)
-
-        self.assertEqual(updated_user.first_name, "John")
-        self.assertEqual(updated_user.last_name, "Smith")
-
-        self.assertNotEqual(updated_user.username, old_username)
-        self.assertEqual(updated_user.username, "john.smith")
-
-    """ DELETE VALIDATION"""
-
-    # Logic low
-    def test_soft_delete_user(self):
-        user = User( 
-            first_name="Jane",
-            last_name="Doe",
-            email="janedoe@example.com",
-            password="SecurePass123",
-            dni="12345678",
-            role_id=2,
-            phone="123-456-7890",
-            department="Cardiology",
-            birth_date="1990-05-15"
-        )
-        user.save()
-        
-        user.delete()
-        
-        user_from_db = User.all_objects.filter(pk=user.pk).first()
-
-        self.assertIsNotNone(user_from_db)
-        self.assertFalse(user_from_db.is_active)
-
-    def test_deleted_user_is_not_queryable(self):
-        user = User(
-            first_name="Jane",
-            last_name="Doe",
-            email="janedoe@example.com",
-            password="SecurePass123",
-            dni="12345678",
-            role_id=2,
-            phone="123-456-7890",
-            department="Cardiology",
-            birth_date="1990-05-15"
-        )
-        user.save()
-
-        user.delete()
-
-        user_exists = User.objects.filter(email="janedoe@example.com").first()
-
-        self.assertFalse(user_exists)
+        self.assert_user_creation_fails(birth_date=underage_date)

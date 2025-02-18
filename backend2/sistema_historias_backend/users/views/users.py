@@ -6,8 +6,6 @@ import re
 from datetime import datetime, date
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
-from django.contrib.auth import authenticate
-from rest_framework.authtoken.models import Token
 
 User = get_user_model()
 
@@ -16,15 +14,13 @@ class UserListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        print(f"Usuario autenticado: {request.user}")
-
         if not request.user or not request.user.is_authenticated:
             return Response({"error": "No estás autenticado."}, status=status.HTTP_401_UNAUTHORIZED)
 
-        if request.user.role_id == 1:  # 🔹 Si es admin, devuelve todos los usuarios
+        if request.user.role_id == 1:
             users = User.objects.all().values("id", "email", "first_name", "last_name", "role_id", "dni", "department", "birth_date")
             return Response(users, status=status.HTTP_200_OK)
-        else:  # 🔹 Si no es admin, solo devuelve su propio perfil
+        else:
             user_data = {
                 "id": request.user.id,
                 "email": request.user.email,
@@ -78,33 +74,3 @@ class UserCreateView(APIView):
         user.save()
 
         return Response({"message": "Usuario creado correctamente"}, status=status.HTTP_201_CREATED)
-
-from rest_framework.permissions import AllowAny
-
-class LoginView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        email = request.data.get("email")
-        password = request.data.get("password")
-
-        if not email or not password:
-            return Response({"error": "Email y contraseña son obligatorios."}, status=status.HTTP_400_BAD_REQUEST)
-
-        user = authenticate(request, email=email, password=password)
-        
-        if user:
-            token, created = Token.objects.get_or_create(user=user)
-            return Response({"token": token.key}, status=status.HTTP_200_OK)
-        else:
-            return Response({"error": "Credenciales inválidas."}, status=status.HTTP_401_UNAUTHORIZED)
-
-class DashboardView(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        return Response({
-            "message": f"Bienvenido/a al dashboard, {request.user.first_name}.",
-            "role_id": request.user.role_id
-        }, status=status.HTTP_200_OK)
